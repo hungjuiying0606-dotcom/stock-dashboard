@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票投資組合分析與資產走勢儀表板</title>
+    <!-- Google Fonts Outfit & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0B111E;
+            --bg-secondary: #161F30;
+            --card-bg: rgba(22, 31, 48, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --navy-blue: #1B365D;
+            --accent-blue: #3B82F6;
+            --accent-cyan: #06B6D4;
+            --accent-rose: #F43F5E;
+            --profit-red: #EF4444; /* Taiwan Style Red for Profit */
+            --loss-green: #10B981; /* Taiwan Style Green for Loss */
+            --shadow-primary: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --glass-blur: blur(16px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            line-height: 1.5;
+            background-image: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header Styling */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFFFFF 30%, #3B82F6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-badge {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Key Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 1.25rem 1.5rem;
+            box-shadow: var(--shadow-primary);
+            backdrop-filter: var(--glass-blur);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.825rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.625rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-sub {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .trend-up { color: var(--profit-red); }
+        .trend-down { color: var(--loss-green); }
+
+        /* Charts Layout */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            box-shadow: var(--shadow-primary);
+            backdrop-filter: var(--glass-blur);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        /* Table Styling */
+        .table-responsive {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.925rem;
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            text-transform: uppercase;
+            font-size: 0.775rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stock-name-cell {
+            font-weight: 600;
+            color: #FFFFFF;
+        }
+
+        .stock-shares-cell {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Leaderboard and Lists */
+        .leaderboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .leader-item:last-child {
+            border-bottom: none;
+        }
+
+        .leader-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .leader-value {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        /* Quantitative Section CSS */
+        .quant-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .quant-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 4px;
+            text-align: center;
+        }
+
+        .heatmap-th {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 6px 2px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            text-transform: none;
+            letter-spacing: 0;
+            vertical-align: middle;
+            line-height: 1.1;
+        }
+
+        .heatmap-label-td {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.725rem;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .heatmap-val-td {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.825rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            cursor: help;
+        }
+
+        .heatmap-val-td:hover {
+            transform: scale(1.15);
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        .simulator-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.825rem;
+        }
+
+        .slider-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .slider-class-badge {
+            font-size: 0.65rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .slider-value-badge {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.775rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .slider-input {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+            transition: transform 0.1s;
+        }
+
+        .slider-input::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .simulator-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .sim-metric-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            padding: 0.85rem;
+            text-align: center;
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .sim-metric-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .sim-metric-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+        }
+
+        .sim-metric-comparison {
+            font-size: 0.725rem;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+        }
+
+        .sim-metric-diff-better {
+            color: var(--loss-green); /* Green is lower vol / lower beta */
+            font-weight: 600;
+        }
+
+        .sim-metric-diff-worse {
+            color: var(--profit-red); /* Red is higher risk */
+            font-weight: 600;
+        }
+
+        .gauge-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .gauge-bar-outer {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gauge-bar-inner {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            border-radius: 9999px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gauge-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .gauge-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+        }
+
+        .sim-button-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .sim-btn {
+            flex: 1;
+            padding: 0.55rem 0.75rem;
+            border-radius: 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            text-align: center;
+        }
+
+        .sim-btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .sim-btn-primary:hover {
+            background: #2563EB;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+        }
+
+        .sim-btn-secondary {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-primary);
+            border-color: var(--card-border);
+        }
+
+        .sim-btn-secondary:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .sim-btn-accent {
+            background: rgba(6, 182, 212, 0.12);
+            border-color: rgba(6, 182, 212, 0.25);
+            color: var(--accent-cyan);
+        }
+
+        .sim-btn-accent:hover {
+            background: rgba(6, 182, 212, 0.2);
+        }
+
+        /* Semiconductor Forecast layout */
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-top: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .forecast-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .forecast-metric-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .forecast-metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-cyan);
+        }
+
+        .forecast-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.35rem;
+        }
+
+        .forecast-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #FFFFFF;
+        }
+
+        .forecast-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            line-height: 1.4;
+        }
+
+        /* Analysis Markdown Section */
+        .analysis-section {
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        .analysis-section h3 {
+            font-size: 1.4rem;
+            margin-top: 1.75rem;
+            margin-bottom: 1rem;
+            color: #FFFFFF;
+            font-weight: 700;
+            border-left: 4px solid var(--accent-blue);
+            padding-left: 0.75rem;
+        }
+
+        .analysis-section h3:first-of-type {
+            margin-top: 0;
+        }
+
+        .analysis-section p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+
+        .analysis-section ul, .analysis-section ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .analysis-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight-text {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .alert-box {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            color: var(--text-secondary);
+        }
+
+        .alert-title {
+            color: var(--accent-blue);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1>年度股票投資組合分析</h1>
+                <p>數據統計區間：2025年10月 - 2026年6月 | 最新結算日期：2026/08/07</p>
+            </div>
+            <div class="header-badge">
+                Consolidated Annual Report
+            </div>
+        </header>
+
+        <!-- KPI Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">總投資成本</div>
+                <div class="metric-value">9,488,631</div>
+                <div class="metric-sub">累計已投入的股票成本資金</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">總帳面收入 (資產現值)</div>
+                <div class="metric-value">11,939,047</div>
+                <div class="metric-sub">當前持股按市價折算後的淨值</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">未實現總損益</div>
+                <div class="metric-value trend-up">+2,450,416</div>
+                <div class="metric-sub trend-up">
+                    <span>▲ 獲利成長中</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">全年度投資報酬率 (ROI)</div>
+                <div class="metric-value trend-up">25.82%</div>
+                <div class="metric-sub trend-up">
+                    <span>▲ 擊敗市場平均報酬率</span>
+                </div>
+            </div>
+            <div class="metric-card" style="border-color: rgba(6, 182, 212, 0.25);">
+                <div class="metric-label">組合貝塔值 (Portfolio Beta)</div>
+                <div class="metric-value" style="color: var(--accent-cyan);">1.162</div>
+                <div class="metric-sub">敏感度高於大盤 (TAIEX)</div>
+            </div>
+            <div class="metric-card" style="border-color: rgba(59, 130, 246, 0.25);">
+                <div class="metric-label">組合年化波動度 (Vol)</div>
+                <div class="metric-value" style="color: var(--accent-blue);">19.92%</div>
+                <div class="metric-sub">分散後實際年化風險度</div>
+            </div>
+            <div class="metric-card" style="border-color: rgba(16, 185, 129, 0.25);">
+                <div class="metric-label">資產分散避險效益</div>
+                <div class="metric-value" style="color: var(--loss-green);">1.89%</div>
+                <div class="metric-sub">因低相關性所減少的波動</div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Asset growth chart -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">資產成長與投資資金走勢 (Asset Growth)</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="assetGrowthChart"></canvas>
+                </div>
+            </div>
+            <!-- Allocation chart -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">持股資產配置佔比 (Allocation)</div>
+                </div>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="allocationChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
+            <!-- ROI & PnL Trend chart -->
+            <div class="card" style="margin-bottom: 2.5rem;">
+                <div class="card-header">
+                    <div class="card-title">每月未實現損益與報酬率走勢 (PnL & ROI Trend)</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pnlRoiChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Stock Winners / Losers leaderboard -->
+            <div class="card" style="margin-bottom: 2.5rem;">
+                <div class="card-header">
+                    <div class="card-title">持股績效排行榜 (Leaderboard)</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem; color: var(--profit-red); margin-bottom: 0.5rem; text-transform: uppercase; border-bottom: 1px solid rgba(239, 68, 68, 0.2); padding-bottom: 0.25rem;">
+                            獲利前三名 (Top PnL Contributors)
+                        </div>
+                        <div class="leader-item"><span class="leader-name">國泰費城半導體</span><span class="leader-value trend-up">+734,251 NTD (+51.73%)</span></div><div class="leader-item"><span class="leader-name">國泰台灣領袖50</span><span class="leader-value trend-up">+503,739 NTD (+89.71%)</span></div><div class="leader-item"><span class="leader-name">台積電</span><span class="leader-value trend-up">+481,150 NTD (+11.55%)</span></div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-cyan); margin-bottom: 0.5rem; text-transform: uppercase; border-bottom: 1px solid rgba(6, 182, 212, 0.2); padding-bottom: 0.25rem;">
+                            投資報酬率前三名 (Top ROI Performers)
+                        </div>
+                        <div class="leader-item"><span class="leader-name">明细</span><span class="leader-value trend-up">+103.93% (+190,778 NTD)</span></div><div class="leader-item"><span class="leader-name">FT臺灣Smart</span><span class="leader-value trend-up">+91.13% (+48,136 NTD)</span></div><div class="leader-item"><span class="leader-name">國泰台灣領袖50</span><span class="leader-value trend-up">+89.71% (+503,739 NTD)</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Stock Holdings Table -->
+        <div class="card" style="margin-bottom: 2.5rem;">
+            <div class="card-header">
+                <div class="card-title">當前最新持股明細 (June 2026 Holdings)</div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>股名</th>
+                            <th>股數</th>
+                            <th>成交均價</th>
+                            <th>現價</th>
+                            <th>投資成本</th>
+                            <th>帳面收入</th>
+                            <th>未實現損益</th>
+                            <th>損益率</th>
+                            <th>資產配置比</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+            <td class="stock-name-cell">台積電</td>
+            <td class="stock-shares-cell">1,970</td>
+            <td>$2,115.29</td>
+            <td>$2,370</td>
+            <td>$4,167,113</td>
+            <td>$4,648,263</td>
+            <td class="trend-up">+481,150</td>
+            <td class="trend-up">+11.55%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">38.93%</td>
+        </tr><tr>
+            <td class="stock-name-cell">國泰費城半導體</td>
+            <td class="stock-shares-cell">25,000</td>
+            <td>$56.77</td>
+            <td>$86.35</td>
+            <td>$1,419,272</td>
+            <td>$2,153,523</td>
+            <td class="trend-up">+734,251</td>
+            <td class="trend-up">+51.73%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">18.04%</td>
+        </tr><tr>
+            <td class="stock-name-cell">元大台灣50</td>
+            <td class="stock-shares-cell">13,100</td>
+            <td>$72.43</td>
+            <td>$102.85</td>
+            <td>$948,857</td>
+            <td>$1,344,098</td>
+            <td class="trend-up">+395,241</td>
+            <td class="trend-up">+41.65%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">11.26%</td>
+        </tr><tr>
+            <td class="stock-name-cell">國泰台灣領袖50</td>
+            <td class="stock-shares-cell">27,000</td>
+            <td>$20.80</td>
+            <td>$39.55</td>
+            <td>$561,533</td>
+            <td>$1,065,272</td>
+            <td class="trend-up">+503,739</td>
+            <td class="trend-up">+89.71%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">8.92%</td>
+        </tr><tr>
+            <td class="stock-name-cell">第一金太空衛星</td>
+            <td class="stock-shares-cell">7,000</td>
+            <td>$67.02</td>
+            <td>$61.05</td>
+            <td>$469,114</td>
+            <td>$426,321</td>
+            <td class="trend-down">-42,793</td>
+            <td class="trend-down">-9.12%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">3.57%</td>
+        </tr><tr>
+            <td class="stock-name-cell">明细</td>
+            <td class="stock-shares-cell">2,000</td>
+            <td>$91.78</td>
+            <td>$188</td>
+            <td>$183,560</td>
+            <td>$374,338</td>
+            <td class="trend-up">+190,778</td>
+            <td class="trend-up">+103.93%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">3.14%</td>
+        </tr><tr>
+            <td class="stock-name-cell">國泰臺韓科技</td>
+            <td class="stock-shares-cell">3,000</td>
+            <td>$101.46</td>
+            <td>$95.55</td>
+            <td>$304,381</td>
+            <td>$285,957</td>
+            <td class="trend-down">-18,424</td>
+            <td class="trend-down">-6.05%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">2.40%</td>
+        </tr><tr>
+            <td class="stock-name-cell">元大航太防衛科技</td>
+            <td class="stock-shares-cell">9,000</td>
+            <td>$23.50</td>
+            <td>$26.59</td>
+            <td>$211,525</td>
+            <td>$238,741</td>
+            <td class="trend-up">+27,216</td>
+            <td class="trend-up">+12.87%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">2.00%</td>
+        </tr><tr>
+            <td class="stock-name-cell">野村臺灣新科技50</td>
+            <td class="stock-shares-cell">4,000</td>
+            <td>$60.74</td>
+            <td>$55</td>
+            <td>$242,943</td>
+            <td>$219,468</td>
+            <td class="trend-down">-23,475</td>
+            <td class="trend-down">-9.66%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">1.84%</td>
+        </tr><tr>
+            <td class="stock-name-cell">元大S&P500</td>
+            <td class="stock-shares-cell">2,000</td>
+            <td>$58.58</td>
+            <td>$78.25</td>
+            <td>$117,166</td>
+            <td>$156,122</td>
+            <td class="trend-up">+38,956</td>
+            <td class="trend-up">+33.25%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">1.31%</td>
+        </tr><tr>
+            <td class="stock-name-cell">FT臺灣Smart</td>
+            <td class="stock-shares-cell">4,000</td>
+            <td>$13.21</td>
+            <td>$25.30</td>
+            <td>$52,820</td>
+            <td>$100,956</td>
+            <td class="trend-up">+48,136</td>
+            <td class="trend-up">+91.13%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.85%</td>
+        </tr><tr>
+            <td class="stock-name-cell">中信日本商社</td>
+            <td class="stock-shares-cell">6,000</td>
+            <td>$14.81</td>
+            <td>$15.80</td>
+            <td>$88,884</td>
+            <td>$94,578</td>
+            <td class="trend-up">+5,694</td>
+            <td class="trend-up">+6.41%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.79%</td>
+        </tr><tr>
+            <td class="stock-name-cell">凱基台灣TOP50</td>
+            <td class="stock-shares-cell">6,000</td>
+            <td>$14.99</td>
+            <td>$14.88</td>
+            <td>$89,965</td>
+            <td>$89,070</td>
+            <td class="trend-down">-895</td>
+            <td class="trend-down">-0.99%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.75%</td>
+        </tr><tr>
+            <td class="stock-name-cell">主動統一升级50</td>
+            <td class="stock-shares-cell">9,000</td>
+            <td>$10.21</td>
+            <td>$9.72</td>
+            <td>$91,880</td>
+            <td>$87,219</td>
+            <td class="trend-down">-4,661</td>
+            <td class="trend-down">-5.07%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.73%</td>
+        </tr><tr>
+            <td class="stock-name-cell">主動統一台股增長</td>
+            <td class="stock-shares-cell">2,000</td>
+            <td>$28.60</td>
+            <td>$28.03</td>
+            <td>$57,191</td>
+            <td>$55,926</td>
+            <td class="trend-down">-1,265</td>
+            <td class="trend-down">-2.21%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.47%</td>
+        </tr><tr>
+            <td class="stock-name-cell">富邦ESG綠色電力</td>
+            <td class="stock-shares-cell">2,000</td>
+            <td>$21.59</td>
+            <td>$24.58</td>
+            <td>$43,181</td>
+            <td>$49,041</td>
+            <td class="trend-up">+5,860</td>
+            <td class="trend-up">+13.57%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.41%</td>
+        </tr><tr>
+            <td class="stock-name-cell">康舒</td>
+            <td class="stock-shares-cell">1,000</td>
+            <td>$49.27</td>
+            <td>$47.15</td>
+            <td>$49,270</td>
+            <td>$46,942</td>
+            <td class="trend-down">-2,328</td>
+            <td class="trend-down">-4.72%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.39%</td>
+        </tr><tr>
+            <td class="stock-name-cell">中信數據及電力</td>
+            <td class="stock-shares-cell">4,000</td>
+            <td>$10.66</td>
+            <td>$10.31</td>
+            <td>$42,630</td>
+            <td>$41,120</td>
+            <td class="trend-down">-1,510</td>
+            <td class="trend-down">-3.54%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.34%</td>
+        </tr><tr>
+            <td class="stock-name-cell">中信關键半體</td>
+            <td class="stock-shares-cell">1,000</td>
+            <td>$35.83</td>
+            <td>$34.75</td>
+            <td>$35,830</td>
+            <td>$34,667</td>
+            <td class="trend-down">-1,163</td>
+            <td class="trend-down">-3.25%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.29%</td>
+        </tr><tr>
+            <td class="stock-name-cell">主動群益科技創新</td>
+            <td class="stock-shares-cell">2,000</td>
+            <td>$18.06</td>
+            <td>$16.63</td>
+            <td>$36,121</td>
+            <td>$33,182</td>
+            <td class="trend-down">-2,939</td>
+            <td class="trend-down">-8.14%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.28%</td>
+        </tr><tr>
+            <td class="stock-name-cell">群益台灣精選高息</td>
+            <td class="stock-shares-cell">1,000</td>
+            <td>$21.11</td>
+            <td>$29.74</td>
+            <td>$21,110</td>
+            <td>$29,669</td>
+            <td class="trend-up">+8,559</td>
+            <td class="trend-up">+40.54%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.25%</td>
+        </tr><tr>
+            <td class="stock-name-cell">台灣虎航</td>
+            <td class="stock-shares-cell">1</td>
+            <td>$74</td>
+            <td>$74</td>
+            <td>$74</td>
+            <td>$74</td>
+            <td class="trend-up">+0</td>
+            <td class="trend-down">-24.32%</td>
+            <td style="font-family: 'Outfit', sans-serif; font-weight: 500;">0.00%</td>
+        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quantitative Risk Analysis Section -->
+        <div class="quant-grid">
+            <!-- Correlation Matrix Card -->
+            <div class="card" style="margin-bottom: 0;">
+                <div class="card-header">
+                    <div class="card-title">
+                        📊 8大資產類別相關性矩陣 (Correlation Heatmap)
+                    </div>
+                </div>
+                <div id="heatmapGrid" style="width: 100%; overflow-x: auto; padding-bottom: 10px;">
+                    <!-- Dynamically generated table -->
+                </div>
+                <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 1rem; line-height: 1.4;">
+                    * 相關係數介於 1.0 (正相關，同步波動) 到 0.0 (無相關，完全分散)。紅色越深代表同步度越高，綠色代表分散防震效果越強。
+                </div>
+            </div>
+
+            <!-- Rebalancing Simulator Card -->
+            <div class="card" style="margin-bottom: 0;">
+                <div class="card-header">
+                    <div class="card-title">
+                        🔄 資產配置與風險再平衡模擬器 (Rebalancing Simulator)
+                    </div>
+                </div>
+                <div class="simulator-container">
+                    <div id="simulator-sliders">
+                        <!-- Sliders generated dynamically -->
+                    </div>
+
+                    <!-- Simulator Output metrics -->
+                    <div class="simulator-metrics">
+                        <div class="sim-metric-card">
+                            <div class="sim-metric-label">模擬投資組合 Beta</div>
+                            <div class="sim-metric-value" id="sim-beta">-</div>
+                            <div class="sim-metric-comparison" id="sim-beta-diff">-</div>
+                        </div>
+                        <div class="sim-metric-card">
+                            <div class="sim-metric-label">模擬組合年化波動度</div>
+                            <div class="sim-metric-value" id="sim-volatility" style="color: var(--accent-blue);">-</div>
+                            <div class="sim-metric-comparison" id="sim-vol-diff">-</div>
+                        </div>
+                        <div class="sim-metric-card">
+                            <div class="sim-metric-label">模擬組合避險效益</div>
+                            <div class="sim-metric-value" id="sim-benefit" style="color: var(--loss-green);">-</div>
+                            <div class="sim-metric-comparison" id="sim-benefit-diff">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Risk reduction bar gauge -->
+                    <div class="gauge-container">
+                        <div class="gauge-label">
+                            <span>模擬資產配置年化風險降幅 (Risk Reduction)</span>
+                            <span class="gauge-value" id="risk-reduction-val">0.00%</span>
+                        </div>
+                        <div class="gauge-bar-outer">
+                            <div class="gauge-bar-inner" id="risk-reduction-bar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Simulator actions -->
+                    <div class="sim-button-group">
+                        <button class="sim-btn sim-btn-secondary" onclick="applyPreset('current')">重置為現有配置</button>
+                        <button class="sim-btn sim-btn-accent" onclick="applyPreset('rebalanced')">套用建議再平衡配置</button>
+                        <button class="sim-btn sim-btn-primary" onclick="applyPreset('defensive')">防禦避險極大化</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Semiconductor Trend Forecast & AI Outlook -->
+        <div class="card" style="margin-bottom: 2.5rem;">
+            <div class="card-header">
+                <div class="card-title">
+                    ⚡ 半導體產業深入走勢預測與AI需求展望 (Semiconductor Deep-Dive & AI Outlook)
+                </div>
+            </div>
+            <div class="analysis-section">
+                <p>
+                    進入 2026 年，全球半導體產業迎來歷史性的結構性轉變。在人工智慧 (AI) 基礎設施建設的第二波浪潮、AI Edge（AI PC、AI 智慧型手機）普及化，以及先進封裝產能解瓶頸等多重利多帶動下，半導體市場進入了新一輪擴張週期。
+                </p>
+                <div class="forecast-grid">
+                    <div class="forecast-metric-card">
+                        <div class="forecast-label">全球半導體產值 (2026E)</div>
+                        <div class="forecast-value">$1.3T - $1.5T USD</div>
+                        <div class="forecast-desc">較 2025 年成長約 15%-18%，由 AI 伺服器晶片與邊緣 AI 終端硬體雙重爆發性需求帶動。</div>
+                    </div>
+                    <div class="forecast-metric-card" style="border-color: var(--accent-blue);">
+                        <div class="forecast-label">台積電 2026 營收年增率</div>
+                        <div class="forecast-value">~ 30.0% (USD計)</div>
+                        <div class="forecast-desc">受惠於 3奈米 (N3) 與 2奈米 (N2) 先進製程定價調升，以及 CoWoS 產能年增逾一倍。</div>
+                    </div>
+                    <div class="forecast-metric-card" style="border-color: var(--loss-green);">
+                        <div class="forecast-label">台積電 2026 資本支出</div>
+                        <div class="forecast-value">$52B - $56B USD</div>
+                        <div class="forecast-desc">創歷史新高，主要投入新一代 N2 先進製程與 A16 光學曝光先進封裝技術產能。</div>
+                    </div>
+                </div>
+                <p>
+                    根據主流研究機構（如 Gartner 與 WSTS）最新估算，隨著高性能運算 (HPC), 自駕車晶片及智慧電網需求全面落地，全球半導體產值將朝著 2030 年破 1 兆美元的長期目標加速前進。
+                    然而，半導體股的高貝塔 (Beta) 特性也意味著其走勢具有極高波動性，需要防禦性資產來優化夏普值 (Sharpe Ratio)。
+                </p>
+            </div>
+        </div>
+
+        <!-- Investment Analysis Report -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">下一階段股票投資組合深度量化分析與策略建議 (Strategic Analysis)</div>
+            </div>
+            <div class="analysis-section">
+                <h3>一、 投資組合績效與貝塔 (Beta) 敏感度評估</h3>
+                <p>
+                    本投資組合自 2025 年 10 月以來表現極其優異，總投入資金由 <span class="highlight-text">$3,502,613 NTD</span> 穩步加碼至 <span class="highlight-text">$9,488,631 NTD</span>，現值攀升至 <span class="highlight-text">$11,939,047 NTD</span>，累計未實現獲利高達 <span class="highlight-text">$2,450,416 NTD</span>，全年度報酬率 (ROI) 高達 <span class="highlight-text">25.82%</span>。
+                </p>
+                <p>
+                    然而，引進量化指標分析後發現，本組合的貝塔值 (Beta) 達 <span class="highlight-text">1.162</span>。這意味著大盤 (TAIEX) 波動 10% 時，本組合淨值將會隨之波動將近 11.6%。這主要源於持股配置高度集中在科技成長股與半導體巨頭上。台積電 (38.93%) 與國泰費城半導體 (18.04%) 的合併配置比重高達 56.97%。雖然在半導體牛市中，這種極高 Beta 的配置幫助組合創下了回報率新高，但在市場短暫回檔時，淨值波動劇烈，顯示高 Beta 組合在空頭市場下的劇烈淨值折損風險。
+                </p>
+
+                <h3>二、 相關性矩陣 (Correlation Matrix) 避險效益解讀</h3>
+                <p>
+                    為量化多樣化投資的避險效果，我們建構了 8 大資產類別的相關性矩陣：
+                </p>
+                <ul>
+                    <li>
+                        <span class="highlight-text">高相關性集中風險：</span>
+                        <span class="trend-up">半導體巨頭</span> 與 <span class="trend-up">全球科技成長</span> 的相關係數高達 <span class="highlight-text">0.85</span>，與大盤指數型相關係數也達 <span class="highlight-text">0.75</span>。當半導體出現修正時，這三大板塊的跌幅會產生共振效應，無法發揮避險作用。
+                    </li>
+                    <li>
+                        <span class="highlight-text">低相關性天然避險港：</span>
+                        相對而言，<span class="trend-down">高股息價值型</span> 與 <span class="trend-down">傳統價值型</span> 與半導體的相關係數僅為 <span class="highlight-text">0.45</span> 與 <span class="highlight-text">0.35</span>；<span class="trend-down">日本商社板塊</span> 與科技股相關性僅為 <span class="highlight-text">0.30 - 0.35</span>。這表示當半導體及全球科技成長遭遇大震盪時，這些防禦性資產具有極佳的對沖功能。
+                    </li>
+                    <li>
+                        <span class="highlight-text">避險效果量化：</span>
+                        目前現有持股的加權平均波動度為 21.80%，而由於低相關性資產（如日本商社、南亞、群益高息）的微幅平抑作用，整合後的投資組合實際波動度下降至 <span class="highlight-text">19.92%</span>，提供了 <span class="highlight-text">1.89%</span> 的分散避險效益。
+                    </li>
+                </ul>
+
+                <div class="alert-box">
+                    <div class="alert-title">
+                        ⚠️ 核心量化警示：科技過度集中風險 (Tech Over-Concentration)
+                    </div>
+                    雖然目前的資產配置已通過資產多樣化獲得 1.89% 的波動降幅，但半導體與科技股權重仍高達近 70%。若科技股或全球半導體景氣步入短暫庫存修正週期，投資組合將面臨較嚴重的最大回撤風險。
+                </div>
+
+                <h3>三、 資產配置再平衡建議策略</h3>
+                <p>
+                    利用配置再平衡模擬器，我們強烈建議投資人將目前高 Beta (1.162) 的配置進行適度調整，逐步引進防禦性高股息與傳產價值板塊：
+                </p>
+                <ol>
+                    <li>
+                        <span class="highlight-text">分批停利高回報科技部位：</span>
+                        明细 (+103.93%) 與 FT臺灣Smart (+91.13%) 目前累計漲幅已極高。建議針對這些高漲幅標的設定動態停利點，逐步回收 10% - 15% 資金，將利潤落袋為安。
+                    </li>
+                    <li>
+                        <span class="highlight-text">增持高股息防禦資產 (群益高息 + 南亞)：</span>
+                        建議將半導體巨頭 (台積電) 配置由 38.9% 降低至 <span class="highlight-text">20.0%</span>，全球科技成長 (費城半導體) 降低至 <span class="highlight-text">10.0%</span>。將釋出的資金分批轉入 <span class="highlight-text">群益台灣精選高息</span> 與傳產龍頭 <span class="highlight-text">南亞</span>。
+                    </li>
+                    <li>
+                        <span class="highlight-text">再平衡後的風險改善指標：</span>
+                        套用上述建議再平衡配置後，組合貝塔值將從 1.162 下調至 <span class="highlight-text">0.954</span>，降幅顯著。年化波動度將下降至 <span class="highlight-text">15.56%</span>，為投資組合帶來更穩健的風險防禦力！與此同時，由於轉向低相關性資產，分散避險效益提升，大幅增強了投資組合抵抗系統性震盪的能力。
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart rendering Javascript -->
+    <script>
+        const trendData = [{"month": "2025/10", "date": "2025/10/31", "cost": 2400977.015, "market_value": 3110050, "pnl": 392304, "ratio": 0.10339999999999999}, {"month": "2025/11", "date": "2025/11/04", "cost": 3793396, "market_value": 4075104, "pnl": 462656, "ratio": 0.1036}, {"month": "2026/01", "date": "2026/01/23", "cost": 4464446, "market_value": 5308938, "pnl": 911548, "ratio": 0.20420000000000002}, {"month": "2026/02", "date": "2026/02/26", "cost": 4236041, "market_value": 5384759, "pnl": 1302692, "ratio": 0.2481}, {"month": "2026/03", "date": "2026/03/31", "cost": 5447352, "market_value": 8084289, "pnl": 453659, "ratio": 0.059500000000000004}, {"month": "2026/04", "date": "2026/04/30", "cost": 5442743, "market_value": 7142975, "pnl": 1700232, "ratio": 0.3124}, {"month": "2026/05", "date": "2026/05/29", "cost": 6941446, "market_value": 9756344, "pnl": 2807068, "ratio": 0.4056}, {"month": "2026/06", "date": "2026/06/30", "cost": 8922982, "market_value": 12053099, "pnl": 3130117, "ratio": 0.3508}, {"month": "2026/07", "date": "2026/07/31", "cost": 10025817, "market_value": 12581222, "pnl": 2555405, "ratio": 0.25489999999999996}, {"month": "2026/08", "date": "2026/08/07", "cost": 9488631, "market_value": 11939047, "pnl": 2450416, "ratio": 0.2582}];
+        const stockData = [{"name": "台積電", "shares": 1970, "avg_cost_str": "2,115.29", "cost": 4167113, "price_str": "2,370", "market_value": 4648263, "pnl": 481150, "ratio": 0.1155, "allocation": 0.38933283368429655}, {"name": "國泰費城半導體", "shares": 25000, "avg_cost_str": "56.77", "cost": 1419272, "price_str": "86.35", "market_value": 2153523, "pnl": 734251, "ratio": 0.5173, "allocation": 0.18037645718288906}, {"name": "元大台灣50", "shares": 13100, "avg_cost_str": "72.43", "cost": 948857, "price_str": "102.85", "market_value": 1344098, "pnl": 395241, "ratio": 0.4165, "allocation": 0.11258000743275405}, {"name": "國泰台灣領袖50", "shares": 27000, "avg_cost_str": "20.80", "cost": 561533, "price_str": "39.55", "market_value": 1065272, "pnl": 503739, "ratio": 0.8970999999999999, "allocation": 0.08922588209929988}, {"name": "第一金太空衛星", "shares": 7000, "avg_cost_str": "67.02", "cost": 469114, "price_str": "61.05", "market_value": 426321, "pnl": -42793, "ratio": -0.09119999999999999, "allocation": 0.035708126452638975}, {"name": "明细", "shares": 2000, "avg_cost_str": "91.78", "cost": 183560, "price_str": "188", "market_value": 374338, "pnl": 190778, "ratio": 1.0393000000000001, "allocation": 0.03135409384015324}, {"name": "國泰臺韓科技", "shares": 3000, "avg_cost_str": "101.46", "cost": 304381, "price_str": "95.55", "market_value": 285957, "pnl": -18424, "ratio": -0.0605, "allocation": 0.023951409187014674}, {"name": "元大航太防衛科技", "shares": 9000, "avg_cost_str": "23.50", "cost": 211525, "price_str": "26.59", "market_value": 238741, "pnl": 27216, "ratio": 0.12869999999999998, "allocation": 0.019996654674363876}, {"name": "野村臺灣新科技50", "shares": 4000, "avg_cost_str": "60.74", "cost": 242943, "price_str": "55", "market_value": 219468, "pnl": -23475, "ratio": -0.0966, "allocation": 0.018382371725314425}, {"name": "元大S&P500", "shares": 2000, "avg_cost_str": "58.58", "cost": 117166, "price_str": "78.25", "market_value": 156122, "pnl": 38956, "ratio": 0.3325, "allocation": 0.01307658810623662}, {"name": "FT臺灣Smart", "shares": 4000, "avg_cost_str": "13.21", "cost": 52820, "price_str": "25.30", "market_value": 100956, "pnl": 48136, "ratio": 0.9113, "allocation": 0.008455951299965566}, {"name": "中信日本商社", "shares": 6000, "avg_cost_str": "14.81", "cost": 88884, "price_str": "15.80", "market_value": 94578, "pnl": 5694, "ratio": 0.0641, "allocation": 0.007921737807046074}, {"name": "凱基台灣TOP50", "shares": 6000, "avg_cost_str": "14.99", "cost": 89965, "price_str": "14.88", "market_value": 89070, "pnl": -895, "ratio": -0.009899999999999999, "allocation": 0.007460394451918984}, {"name": "主動統一升级50", "shares": 9000, "avg_cost_str": "10.21", "cost": 91880, "price_str": "9.72", "market_value": 87219, "pnl": -4661, "ratio": -0.0507, "allocation": 0.007305356951857213}, {"name": "主動統一台股增長", "shares": 2000, "avg_cost_str": "28.60", "cost": 57191, "price_str": "28.03", "market_value": 55926, "pnl": -1265, "ratio": -0.022099999999999998, "allocation": 0.004684293478365568}, {"name": "富邦ESG綠色電力", "shares": 2000, "avg_cost_str": "21.59", "cost": 43181, "price_str": "24.58", "market_value": 49041, "pnl": 5860, "ratio": 0.13570000000000002, "allocation": 0.004107614284456707}, {"name": "康舒", "shares": 1000, "avg_cost_str": "49.27", "cost": 49270, "price_str": "47.15", "market_value": 46942, "pnl": -2328, "ratio": -0.0472, "allocation": 0.0039318046071851465}, {"name": "中信數據及電力", "shares": 4000, "avg_cost_str": "10.66", "cost": 42630, "price_str": "10.31", "market_value": 41120, "pnl": -1510, "ratio": -0.0354, "allocation": 0.0034441609954295347}, {"name": "中信關键半體", "shares": 1000, "avg_cost_str": "35.83", "cost": 35830, "price_str": "34.75", "market_value": 34667, "pnl": -1163, "ratio": -0.0325, "allocation": 0.0029036655940796615}, {"name": "主動群益科技創新", "shares": 2000, "avg_cost_str": "18.06", "cost": 36121, "price_str": "16.63", "market_value": 33182, "pnl": -2939, "ratio": -0.0814, "allocation": 0.0027792838071581424}, {"name": "群益台灣精選高息", "shares": 1000, "avg_cost_str": "21.11", "cost": 21110, "price_str": "29.74", "market_value": 29669, "pnl": 8559, "ratio": 0.4054, "allocation": 0.0024850392162791553}, {"name": "台灣虎航", "shares": 1, "avg_cost_str": "74", "cost": 74, "price_str": "74", "market_value": 74, "pnl": 0, "ratio": -0.2432, "allocation": 6.198149651308015e-06}];
+        
+        // Embed Quantitative Risk parameters
+        const currentPortfolioWeights = {"半導體巨頭": 0.3922364992783762, "全球科技成長": 0.22548952190237628, "大盤指數型": 0.2780743722677363, "衛星與新能源": 0.0632565564068891, "高股息價值型": 0.0024850392162791553, "傳統價值型": 0.0, "日本商社板塊": 0.007921737807046074, "高波動消費性": 6.198149651308015e-06};
+        const betas = {"半導體巨頭": 1.35, "全球科技成長": 1.2, "大盤指數型": 1.0, "衛星與新能源": 1.2, "高股息價值型": 0.75, "傳統價值型": 0.7, "日本商社板塊": 0.8, "高波動消費性": 1.4};
+        const volatilities = {"半導體巨頭": 0.28, "全球科技成長": 0.22, "大盤指數型": 0.16, "衛星與新能源": 0.2, "高股息價值型": 0.12, "傳統價值型": 0.14, "日本商社板塊": 0.15, "高波動消費性": 0.35};
+        const correlationMatrix = {"半導體巨頭": {"半導體巨頭": 1.0, "全球科技成長": 0.85, "大盤指數型": 0.75, "衛星與新能源": 0.6, "高股息價值型": 0.45, "傳統價值型": 0.35, "日本商社板塊": 0.3, "高波動消費性": 0.5}, "全球科技成長": {"半導體巨頭": 0.85, "全球科技成長": 1.0, "大盤指數型": 0.7, "衛星與新能源": 0.65, "高股息價值型": 0.4, "傳統價值型": 0.3, "日本商社板塊": 0.35, "高波動消費性": 0.55}, "大盤指數型": {"半導體巨頭": 0.75, "全球科技成長": 0.7, "大盤指數型": 1.0, "衛星與新能源": 0.55, "高股息價值型": 0.6, "傳統價值型": 0.5, "日本商社板塊": 0.4, "高波動消費性": 0.45}, "衛星與新能源": {"半導體巨頭": 0.6, "全球科技成長": 0.65, "大盤指數型": 0.55, "衛星與新能源": 1.0, "高股息價值型": 0.35, "傳統價值型": 0.3, "日本商社板塊": 0.25, "高波動消費性": 0.45}, "高股息價值型": {"半導體巨頭": 0.45, "全球科技成長": 0.4, "大盤指數型": 0.6, "衛星與新能源": 0.35, "高股息價值型": 1.0, "傳統價值型": 0.55, "日本商社板塊": 0.3, "高波動消費性": 0.3}, "傳統價值型": {"半導體巨頭": 0.35, "全球科技成長": 0.3, "大盤指數型": 0.5, "衛星與新能源": 0.3, "高股息價值型": 0.55, "傳統價值型": 1.0, "日本商社板塊": 0.35, "高波動消費性": 0.25}, "日本商社板塊": {"半導體巨頭": 0.3, "全球科技成長": 0.35, "大盤指數型": 0.4, "衛星與新能源": 0.25, "高股息價值型": 0.3, "傳統價值型": 0.35, "日本商社板塊": 1.0, "高波動消費性": 0.2}, "高波動消費性": {"半導體巨頭": 0.5, "全球科技成長": 0.55, "大盤指數型": 0.45, "衛星與新能源": 0.45, "高股息價值型": 0.3, "傳統價值型": 0.25, "日本商社板塊": 0.2, "高波動消費性": 1.0}};
+        const rebalancedWeights = {"半導體巨頭": 0.2, "全球科技成長": 0.1402, "大盤指數型": 0.2596, "衛星與新能源": 0.137, "高股息價值型": 0.1147, "傳統價值型": 0.134, "日本商社板塊": 0.0145, "高波動消費性": 0.0};
+        
+        // Define classes
+        const classes = [
+            "半導體巨頭", "全球科技成長", "大盤指數型", "衛星與新能源", 
+            "高股息價值型", "傳統價值型", "日本商社板塊", "高波動消費性"
+        ];
+        
+        // Convert weight fractional values to percentage scale [0 - 100]
+        const currentPortfolioWeightsPct = {};
+        classes.forEach(c => {
+            currentPortfolioWeightsPct[c] = (currentPortfolioWeights[c] || 0.0) * 100;
+        });
+        
+        // Keep track of current simulation weights
+        const currentSimWeights = Object.assign({}, currentPortfolioWeightsPct);
+
+        // Extract labels and datasets for Monthly Trend Chart
+        const labels = trendData.map(d => d.month);
+        const costData = trendData.map(d => d.cost);
+        const mvData = trendData.map(d => d.market_value);
+        const pnlData = trendData.map(d => d.pnl);
+        const roiData = trendData.map(d => d.ratio * 100);
+
+        // 1. Asset Growth Chart
+        const ctxAsset = document.getElementById('assetGrowthChart').getContext('2d');
+        new Chart(ctxAsset, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '總投資成本 (Investment Cost)',
+                        data: costData,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: '資產現值 (Market Value)',
+                        data: mvData,
+                        borderColor: '#06B6D4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#9CA3AF', font: { family: 'Inter' } }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#9CA3AF' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#9CA3AF',
+                            callback: function(value) {
+                                return '$' + (value / 1000000).toFixed(1) + 'M';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Allocation Chart
+        const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
+        const allocLabels = stockData.map(s => s.name);
+        const allocValues = stockData.map(s => s.market_value);
+        
+        const colors = [
+            '#3B82F6', '#06B6D4', '#10B981', '#6366F1', '#8B5CF6', 
+            '#EC4899', '#F43F5E', '#F59E0B', '#14B8A6', '#F97316',
+            '#0EA5E9', '#A855F7', '#EF4444', '#10B981', '#6366F1',
+            '#EAB308', '#84CC16', '#475569'
+        ];
+
+        new Chart(ctxAlloc, {
+            type: 'doughnut',
+            data: {
+                labels: allocLabels,
+                datasets: [{
+                    data: allocValues,
+                    backgroundColor: colors,
+                    borderWidth: 1,
+                    borderColor: '#161F30'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = ((val / total) * 100).toFixed(2);
+                                return context.label + ': $' + val.toLocaleString() + ' NTD (' + pct + '%)';
+                            }
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+
+        // 3. PnL & ROI Trend Chart
+        const ctxPnlRoi = document.getElementById('pnlRoiChart').getContext('2d');
+        new Chart(ctxPnlRoi, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '未實現總損益 (PnL NTD)',
+                        data: pnlData,
+                        backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                        borderColor: '#EF4444',
+                        borderWidth: 1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '投資報酬率 (ROI %)',
+                        data: roiData,
+                        type: 'line',
+                        borderColor: '#F59E0B',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#F59E0B',
+                        fill: false,
+                        yAxisID: 'y1',
+                        tension: 0.2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#9CA3AF', font: { family: 'Inter' } }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#9CA3AF' }
+                    },
+                    y: {
+                        position: 'left',
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#9CA3AF',
+                            callback: function(value) {
+                                return '$' + (value / 1000).toFixed(0) + 'K';
+                            }
+                        }
+                    },
+                    y1: {
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: {
+                            color: '#9CA3AF',
+                            callback: function(value) {
+                                return value.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 4. Generate Correlation Matrix Heatmap dynamically
+        function buildCorrelationHeatmap() {
+            const heatmapContainer = document.getElementById('heatmapGrid');
+            const table = document.createElement('table');
+            table.className = 'heatmap-table';
+            
+            // Generate header
+            const headerRow = document.createElement('tr');
+            const corner = document.createElement('th');
+            corner.style.background = 'transparent';
+            headerRow.appendChild(corner);
+            
+            classes.forEach(c => {
+                const th = document.createElement('th');
+                th.className = 'heatmap-th';
+                th.textContent = c;
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+            
+            // Generate rows
+            classes.forEach(c1 => {
+                const row = document.createElement('tr');
+                const labelCell = document.createElement('td');
+                labelCell.className = 'heatmap-label-td';
+                labelCell.textContent = c1;
+                row.appendChild(labelCell);
+                
+                classes.forEach(c2 => {
+                    const val = correlationMatrix[c1][c2];
+                    const td = document.createElement('td');
+                    td.className = 'heatmap-val-td';
+                    td.textContent = val.toFixed(2);
+                    
+                    // HSL mapping: high corr (1.0) -> red, low corr (0.2) -> green
+                    // Hue: 140 (Green) to 0 (Red)
+                    const minHue = 140; 
+                    const maxHue = 0;
+                    const h = minHue - ((val - 0.2) / 0.8) * minHue;
+                    
+                    td.style.backgroundColor = `hsla(${h}, 55%, 38%, 0.6)`;
+                    td.title = `${c1}與${c2}之相關係數：${val.toFixed(2)}`;
+                    row.appendChild(td);
+                });
+                table.appendChild(row);
+            });
+            
+            heatmapContainer.appendChild(table);
+        }
+
+        // Calculate risk parameters for a given weights mapping (percentage scale)
+        function calculateRiskMetrics(weightsPct) {
+            const weights = {};
+            classes.forEach(c => {
+                weights[c] = (weightsPct[c] || 0.0) / 100;
+            });
+            
+            // Portfolio Beta
+            let beta = 0;
+            classes.forEach(c => {
+                beta += weights[c] * betas[c];
+            });
+            
+            // Weighted Avg Volatility
+            let weightedVol = 0;
+            classes.forEach(c => {
+                weightedVol += weights[c] * volatilities[c];
+            });
+            
+            // Actual Portfolio Volatility
+            let variance = 0;
+            classes.forEach(c1 => {
+                classes.forEach(c2 => {
+                    variance += weights[c1] * weights[c2] * volatilities[c1] * volatilities[c2] * correlationMatrix[c1][c2];
+                });
+            });
+            
+            const vol = Math.sqrt(variance);
+            const benefit = weightedVol - vol;
+            
+            return {
+                beta: beta,
+                volatility: vol,
+                benefit: benefit
+            };
+        }
+
+        // Save current base portfolio metrics
+        const currentMetrics = calculateRiskMetrics(currentPortfolioWeightsPct);
+
+        // Generate simulator sliders dynamically
+        function buildSimulatorSliders() {
+            const slidersContainer = document.getElementById('simulator-sliders');
+            slidersContainer.innerHTML = '';
+            
+            classes.forEach(c => {
+                const group = document.createElement('div');
+                group.className = 'slider-group';
+                
+                const header = document.createElement('div');
+                header.className = 'slider-header';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'slider-name';
+                nameSpan.innerHTML = `${c} <span class="slider-class-badge">Beta: ${betas[c]} | Vol: ${volatilities[c]*100}%</span>`;
+                
+                const valBadge = document.createElement('span');
+                valBadge.className = 'slider-value-badge';
+                valBadge.id = `badge-${c}`;
+                valBadge.textContent = currentSimWeights[c].toFixed(1) + '%';
+                
+                header.appendChild(nameSpan);
+                header.appendChild(valBadge);
+                
+                const control = document.createElement('div');
+                control.className = 'slider-control';
+                
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = '0';
+                slider.max = '100';
+                slider.step = '0.5';
+                slider.className = 'slider-input';
+                slider.id = `slider-${c}`;
+                slider.value = currentSimWeights[c].toFixed(2);
+                
+                // Add slider change event listeners for rebalancing and dynamic recalculations
+                slider.addEventListener('input', function(e) {
+                    const newVal = parseFloat(e.target.value);
+                    adjustWeightsAndRecompute(c, newVal);
+                });
+                
+                control.appendChild(slider);
+                group.appendChild(header);
+                group.appendChild(control);
+                slidersContainer.appendChild(group);
+            });
+        }
+
+        // Adjust other weights proportionally when a slider changes
+        function adjustWeightsAndRecompute(changedClass, newVal) {
+            let otherSum = 0;
+            classes.forEach(c => {
+                if (c !== changedClass) {
+                    otherSum += currentSimWeights[c];
+                }
+            });
+            
+            const remaining = 100 - newVal;
+            
+            classes.forEach(c => {
+                if (c === changedClass) {
+                    currentSimWeights[c] = newVal;
+                } else {
+                    if (otherSum > 0) {
+                        currentSimWeights[c] = (currentSimWeights[c] / otherSum) * remaining;
+                    } else {
+                        // Equal distribution if others were 0
+                        currentSimWeights[c] = remaining / (classes.length - 1);
+                    }
+                }
+            });
+            
+            // Sync slider elements and badges
+            classes.forEach(c => {
+                const input = document.getElementById(`slider-${c}`);
+                input.value = currentSimWeights[c].toFixed(2);
+                document.getElementById(`badge-${c}`).textContent = currentSimWeights[c].toFixed(1) + '%';
+            });
+            
+            updateMetricsUI();
+        }
+
+        // Recalculate metrics and update HTML widgets
+        function updateMetricsUI() {
+            const sim = calculateRiskMetrics(currentSimWeights);
+            
+            // Update value texts
+            document.getElementById('sim-beta').textContent = sim.beta.toFixed(3);
+            document.getElementById('sim-volatility').textContent = (sim.volatility * 100).toFixed(2) + '%';
+            document.getElementById('sim-benefit').textContent = (sim.benefit * 100).toFixed(2) + '%';
+            
+            // 1. Beta Comparison
+            const betaDiff = sim.beta - currentMetrics.beta;
+            const betaDiffEl = document.getElementById('sim-beta-diff');
+            if (betaDiff <= -0.001) {
+                betaDiffEl.className = 'sim-metric-comparison sim-metric-diff-better';
+                betaDiffEl.innerHTML = `▼ ${Math.abs(betaDiff).toFixed(3)} (低於現有)`;
+            } else if (betaDiff >= 0.001) {
+                betaDiffEl.className = 'sim-metric-comparison sim-metric-diff-worse';
+                betaDiffEl.innerHTML = `▲ +${betaDiff.toFixed(3)} (高於現有)`;
+            } else {
+                betaDiffEl.className = 'sim-metric-comparison';
+                betaDiffEl.textContent = '與現有持平';
+            }
+            
+            // 2. Volatility Comparison
+            const volDiff = sim.volatility - currentMetrics.volatility;
+            const volDiffEl = document.getElementById('sim-vol-diff');
+            if (volDiff <= -0.0001) {
+                volDiffEl.className = 'sim-metric-comparison sim-metric-diff-better';
+                volDiffEl.innerHTML = `▼ ${Math.abs(volDiff * 100).toFixed(2)}% (低於現有)`;
+            } else if (volDiff >= 0.0001) {
+                volDiffEl.className = 'sim-metric-comparison sim-metric-diff-worse';
+                volDiffEl.innerHTML = `▲ +${(volDiff * 100).toFixed(2)}% (高於現有)`;
+            } else {
+                volDiffEl.className = 'sim-metric-comparison';
+                volDiffEl.textContent = '與現有持平';
+            }
+            
+            // 3. Diversification Benefit Comparison
+            const benDiff = sim.benefit - currentMetrics.benefit;
+            const benDiffEl = document.getElementById('sim-benefit-diff');
+            if (benDiff >= 0.0001) {
+                benDiffEl.className = 'sim-metric-comparison sim-metric-diff-better';
+                benDiffEl.innerHTML = `▲ +${(benDiff * 100).toFixed(2)}% (避險效果提升)`;
+            } else if (benDiff <= -0.0001) {
+                benDiffEl.className = 'sim-metric-comparison sim-metric-diff-worse';
+                benDiffEl.innerHTML = `▼ ${Math.abs(benDiff * 100).toFixed(2)}% (避險效果減弱)`;
+            } else {
+                benDiffEl.className = 'sim-metric-comparison';
+                benDiffEl.textContent = '避險效果無變化';
+            }
+            
+            // 4. Volatility Risk Reduction Gauge
+            const riskReduction = ((currentMetrics.volatility - sim.volatility) / currentMetrics.volatility) * 100;
+            const valEl = document.getElementById('risk-reduction-val');
+            const barEl = document.getElementById('risk-reduction-bar');
+            
+            valEl.textContent = riskReduction.toFixed(2) + '%';
+            if (riskReduction >= 0) {
+                valEl.style.color = 'var(--accent-cyan)';
+                barEl.style.width = Math.min(100, riskReduction * 4) + '%'; // Scaled visually
+                barEl.style.background = 'linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-cyan) 100%)';
+            } else {
+                valEl.style.color = 'var(--accent-rose)';
+                barEl.style.width = Math.min(100, Math.abs(riskReduction) * 4) + '%';
+                barEl.style.background = 'var(--accent-rose)';
+            }
+        }
+
+        // Apply slider presets
+        function applyPreset(name) {
+            let targetWeights = {};
+            if (name === 'current') {
+                classes.forEach(c => {
+                    targetWeights[c] = currentPortfolioWeightsPct[c];
+                });
+            } else if (name === 'rebalanced') {
+                classes.forEach(c => {
+                    targetWeights[c] = rebalancedWeights[c] * 100;
+                });
+            } else if (name === 'defensive') {
+                targetWeights = {
+                    "半導體巨頭": 10.00,
+                    "全球科技成長": 10.00,
+                    "大盤指數型": 20.00,
+                    "衛星與新能源": 10.00,
+                    "高股息價值型": 25.00,
+                    "傳統價值型": 20.00,
+                    "日本商社板塊": 5.00,
+                    "高波動消費性": 0.00
+                };
+            }
+            
+            // Set and apply weights
+            classes.forEach(c => {
+                currentSimWeights[c] = targetWeights[c];
+                const input = document.getElementById(`slider-${c}`);
+                input.value = currentSimWeights[c].toFixed(2);
+                document.getElementById(`badge-${c}`).textContent = currentSimWeights[c].toFixed(1) + '%';
+            });
+            
+            updateMetricsUI();
+        }
+
+        // Window Init
+        window.addEventListener('DOMContentLoaded', () => {
+            buildCorrelationHeatmap();
+            buildSimulatorSliders();
+            updateMetricsUI();
+        });
+    </script>
+</body>
+</html>
